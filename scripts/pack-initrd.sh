@@ -34,14 +34,14 @@ read -p "This will replace your initrd and could make your system unbootable. Ar
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]   # not all shells support this but bash does
 then 
-  # Back up old initrd if it exists
-  NOW=$(date +"%m%d%Y_%H%M%S")
-  [ -e "$INITRD" ] && mv "$INITRD" "${INITRD}.${NOW}"
-  
-  # Is the /tmp/initrd directory present?
-  [ -d "$INITRD_TMPDIR" ] || { echo "/tmp/initrd directory does not exist."; exit 1; }
+	# Back up old initrd if it exists
+	NOW=$(date +"%m%d%Y_%H%M%S")
+	[ -e "$INITRD" ] && mv "$INITRD" "${INITRD}.${NOW}"
 
-  # Pack initrd
-  cd "$INITRD_TMPDIR"
-  find . -print0 | cpio --null -ov --format=newc | gzip -9 > $INITRD
+	# Is the /tmp/initrd directory present?
+	[ -d "$INITRD_TMPDIR" ] || { echo "/tmp/initrd directory does not exist."; exit 1; }
+
+	# Pack initrd
+	cd "$INITRD_TMPDIR"
+	find . -print0 | cpio --null -ov --format=newc | gzip -9 > $INITRD
 fi

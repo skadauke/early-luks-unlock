@@ -30,14 +30,14 @@ INITRD_TMPDIR="/tmp/initrd"
 # Remove old temporary initrd filesystem?
 if [ -d "$INITRD_TMPDIR" ] 
 then
-	read -p "$INITRD_TMPDIR exists. Overwrite? " -n 1 -r
-	echo
-	if [[ $REPLY =~ ^[Yy]$ ]]   # not all shells support this but bash does
-	then
-		rm -r $INITRD_TMPDIR
-	else
-		exit 1
-	fi
+    read -p "$INITRD_TMPDIR exists. Overwrite? " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]   # not all shells support this but bash does
+    then
+        rm -r $INITRD_TMPDIR
+    else
+        exit 1
+    fi
 fi
 
 # Unpack INITRD to INITRD_TMPDIR

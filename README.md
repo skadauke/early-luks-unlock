@@ -41,6 +41,10 @@ Download the scripts:
     $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/scripts/local-bottom/reset_network
     $ sudo chmod +x reset_network
     
+Install `keyutils` to allow passphrase caching.
+    
+    $ sudo apt-get install keyutils
+    
 Depending on whether you'd like to unlock your system using a passphrase (entered via SSH or console) or using a key drive on removable storage (USB stick or SD flash card) follow either [A) Using a passphrase](#a-using-a-passphrase) or [B) Using a key file on removable storage](#b-using-a-key-file-on-removable-storage).
 
 ### A) Using a passphrase

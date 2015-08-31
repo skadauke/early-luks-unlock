@@ -52,6 +52,15 @@ MAX_SECONDS_SLEEP=2
 KEYFILE="$CRYPTTAB_KEY" 
 KEYCTL_ID="$CRYPTTAB_KEY"
 
+# Workaround for keyctl issue: if we cannot attach a key to the @u ring, use @s instead
+keyctl timeout $(keyctl add user test test @u) 60 >/dev/null 2>&1
+if [ $? -eq $TRUE ]; then
+    KEYCTL_RING="@u"
+else
+    KEYCTL_RING="@s"
+fi
+keyctl unlink `keyctl request user test >/dev/null 2>&1` >/dev/null 2>&1
+
 # CRYPTTAB_NAME is exported by the cryptroot script. This variable contains the name of
 # the mapped device that will be created in /dev/mapper. It corresponds to the first field
 # of an entry of /etc/crypttab
@@ -91,7 +100,7 @@ fi
 # usage: msg "message" [switch]
 # switch : switch used for echo to stderr
 # using the switch -n will allow echo to write multiple messages
-# to the same line
+# to the same line (but this is not supported by plymouth)
 msg ()
 {
     if [ $# -gt 0 ]; then
@@ -99,7 +108,7 @@ msg ()
         echo $1 | while read LINE; do
             if [ $PLYMOUTH -eq $TRUE ]; then
                 # use plymouth
-                plymouth message --text="$LINE"
+    		    plymouth display-message --text="$LINE"
             else
                 # use stderr for all messages
                 echo $2 "$1" >&2
@@ -130,16 +139,6 @@ keyctl_addkey ()
     local PASS KEYCTL_ID
     PASS=$1
     KEYCTL_ID=$2
-
-    # Workaround for keyctl issue: if we cannot attach a key to the @u ring, use @s instead
-    keyctl timeout $(keyctl add user test test @u) 60 >/dev/null 2>&1
-    if [ $? -eq $TRUE ]
-        KEYCTL_RING="@u"
-    else
-        dbg "keyctl: cannot change timeout on keyring @u, using @s instead"
-        KEYCTL_RING="@s"
-    fi
-    keyctl unlink `keyctl request user test >/dev/null 2>&1` >/dev/null 2>&1
 
     # Add passphrase to keyring
     KEYRING_ID=$(echo -n $PASS | keyctl padd user $KEYCTL_ID $KEYCTL_RING)
@@ -189,7 +188,7 @@ enum_usb_mmc_drives ()
 {
     # Is the USB driver loaded?
     cat /proc/modules | busybox grep usb_storage >/dev/null 2>&1
-    USBLOAD=0$?				# TODO: Why not USBLOAD=$? See also below
+    USBLOAD=$?				# TODO: Why not USBLOAD=$? See also below
     if [ $USBLOAD -gt 0 ]; then
         dbg "Loading driver 'usb_storage'"
         modprobe usb_storage >/dev/null 2>&1
@@ -197,7 +196,7 @@ enum_usb_mmc_drives ()
 
     # Is the MMC (SDcard) driver loaded?
     cat /proc/modules | busybox grep mmc >/dev/null 2>&1
-    MMCLOAD=0$?
+    MMCLOAD=$?
     if [ $MMCLOAD -gt 0 ]; then
         dbg "Loading drivers 'mmc_block' and 'sdhci'"
         modprobe mmc_block >/dev/null 2>&1
@@ -214,11 +213,11 @@ enum_usb_mmc_drives ()
             # device name, e.g. sdg
             local DRIVE
             DRIVE=`busybox basename $BLOCKDRV`
-            dbg "Examining $DRIVE"
+            dbg "Examining $DRIVE" -n
 
             # is it a USB or MMC device?
             (cd ${BLOCKDRV}/device && busybox pwd -P) | busybox grep 'usb\|mmc' >/dev/null 2>&1
-            USB=0$?
+            USB=$?
             dbg ", USB/MMC=$USB" -n
             if [ $USB -ne $TRUE -o ! -f $BLOCKDRV/dev ]; then
                 dbg ", device $DRIVE ignored"
@@ -262,7 +261,7 @@ try_decrypt_key_device ()
 {
     # Check if key device is encrypted
     /sbin/cryptsetup isLuks /dev/${DEV} >/dev/null 2>&1
-    ENCRYPTED=0$?
+    ENCRYPTED=$?
     DECRYPTED=$FALSE
     # Open crypted partition and prepare for mount
     if [ $ENCRYPTED -eq $TRUE ]; then
@@ -280,7 +279,7 @@ try_decrypt_key_device ()
                 break
             fi
             echo $PASS | /sbin/cryptsetup luksOpen /dev/${DEV} bootkey >/dev/null 2>&1
-            DECRYPTED=0$?
+            DECRYPTED=$?
         done
         # If open failed, skip this device
         if [ $DECRYPTED -ne $TRUE ]; then
@@ -304,7 +303,7 @@ try_mount_device ()
     dbg ", fstype $FSTYPE" -n
     # Is the file-system driver loaded?
     cat /proc/modules | busybox grep $FSTYPE >/dev/null 2>&1
-    FSLOAD=0$?
+    FSLOAD=$?
     if [ $FSLOAD -gt 0 ]; then
         dbg ", loading driver for $FSTYPE" -n
         # load the correct file-system driver
@@ -347,16 +346,18 @@ dbg "Checking if a cached passphrase is available"
 
 # Check if there is a cached keyphrase for the present keyctl id
 # If so, pipe the cached key to STDOUT and exit the script
-KEYRING_ID=$(keyctl search $KEYCTL_RING user "$KEYCTL_ID" 2>/dev/null)
-if [ -n "$KEYRING_ID" ]; then
-    # Cached key found!
-    dbg "The KEYRING_ID for KEYCTL_ID $KEYCTL_ID is '${KEYRING_ID}'."
-    msg "Unlocking $TARGET_VOLUME using cached passphrase."
-    keyctl pipe $KEYRING_ID
-    exit 0
-else
-    dbg "No key ring found for KEYCTL_ID ${KEYCTL_ID}."
-fi
+# Check both @s and @u rings.
+for RING in "@u" "@s"; do
+    KEYRING_ID=$(keyctl search $RING user "$KEYCTL_ID" 2>/dev/null)
+    if [ -n "$KEYRING_ID" ]; then
+        dbg "Cached key found! The KEYRING_ID for KEYCTL_ID $KEYCTL_ID is '${KEYRING_ID}', found in RING $RING."
+        msg "Unlocking $TARGET_VOLUME using cached passphrase."
+        keyctl pipe $KEYRING_ID
+        exit 0
+    else
+        dbg "No key data found for KEYCTL_ID $KEYCTL_ID in ring $RING."
+    fi
+done
 
 #
 # Stage 2: Check for a keyfile on removable storage
@@ -371,7 +372,7 @@ check_for_keyfile
 
 # Find all device nodes corresponding to USB and MMC drives
 enum_usb_mmc_drives
-if [ $? -eq $TRUE ]
+if [ $? -eq $TRUE ]; then
     dbg "Found the following USB/MMC drives: $DRIVES"
 
     # Try to mount key drive partitions. Check for keyfile and exit
@@ -411,12 +412,12 @@ fi
 PASS=$(readpass "$(printf "Enter passphrase: ")")
 
 # Add passphrase to keyctl
-dbg "Call keyctl_addkey PASS $PASS to KEYCTL_ID ${KEYCTL_ID}."
+dbg "Call keyctl_addkey PASS $PASS to KEYCTL_ID $KEYCTL_ID."
 KEYRING_ID=$(keyctl_addkey "$PASS" "$KEYCTL_ID")
 if [ -z $KEYRING_ID ]; then
     dbg "keyctl_addkey failed."
 else
-    dbg "keyctl_addkey successful, KEYRING_ID ${KEYRING_ID}."
+    dbg "keyctl_addkey successful, KEYRING_ID $KEYRING_ID on KEYCTL_RING $KEYCTL_RING."
 fi
 
 # Wait a bit to be able to see messages

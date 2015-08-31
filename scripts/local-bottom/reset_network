@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Initramfs script to reset all network devices after initramfs is done.
+#
+# Author: Martin van Beurden, https://martinvanbeurden.nl
+#
+# Usage:
+# - Copy this script to /etc/initramfs-tools/scripts/local-bottom/reset_network
+# - chmod +x /etc/initramfs-tools/scripts/local-bottom/reset_network
+# - update-initramfs -u -k -all
+
+PREREQ=""
+prereqs()
+{
+    echo "$PREREQ"
+}
+case \$1 in
+    prereqs)
+        prereqs
+        exit 0
+    ;;
+esac
+#
+# Begin real processing
+#
+ifaces=\$(ip addr|egrep "^[0-9]*: "|egrep -v "^[0-9]*: lo:"|awk '{print \$2}'|sed 's/:$//g')
+for iface in \$ifaces; do
+    echo "Flushing network interface \$iface"
+    ip addr flush \$iface
+done

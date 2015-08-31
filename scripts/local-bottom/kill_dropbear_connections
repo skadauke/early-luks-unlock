@@ -1,0 +1,56 @@
+#!/bin/sh
+
+# Initramfs script to kill all dropbear clientconnections after initramfs is done.
+#
+# Adopted from openwrt
+# Author: Martin van Beurden, https://martinvanbeurden.nl
+#
+# Usage:
+# - Copy this script to /etc/initramfs-tools/scripts/local-bottom/kill_dropbear_connections
+# - chmod +x /etc/initramfs-tools/scripts/local-bottom/kill_dropbear_connections
+# - update-initramfs -u -k -all
+#
+PREREQ=""
+prereqs()
+{
+    echo "$PREREQ"
+}
+case \$1 in
+    prereqs)
+        prereqs
+        exit 0
+    ;;
+esac
+#
+# Begin real processing
+#
+NAME=dropbear
+PROG=/sbin/dropbear
+# get all server pids that should be ignored
+ignore=""
+for server in \`cat /var/run/\${NAME}*.pid\`
+do
+    ignore="\${ignore} \${server}"
+done
+# get all running pids and kill client connections
+for pid in \`pidof "\${NAME}"\`
+do
+    # check if correct program, otherwise process next pid
+    grep -F -q -e "\${PROG}" "/proc/\${pid}/cmdline" || {
+        continue
+    }
+    # check if pid should be ignored (servers)
+    skip=0
+    for server in \${ignore}
+    do
+        if [ "\${pid}" == "\${server}" ]
+        then
+            skip=1
+            break
+        fi
+    done
+    [ "\${skip}" -ne 0 ] && continue
+    # kill process
+    echo "\$0: Killing ${pid}..."
+    kill \${pid}
+done

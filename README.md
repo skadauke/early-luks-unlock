@@ -31,21 +31,15 @@ Download the scripts:
 
     $ cd /usr/local/sbin
     $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/luks-unlock.sh
-    $ chmod +x luks-unlock.sh
+    $ sudo chmod +x luks-unlock.sh
     $ cd /etc/initramfs-tools/hooks
     $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/hooks/crypt_unlock.sh
-    $ chmod +x crypt_unlock.sh
-    $ cd /etc/initramfs-tools/local-bottom
-    $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/local-bottom/kill_dropbear_connections
-    $ chmod +x kill_dropbear_connections
-    $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/local-bottom/reset_network
-    $ chmod +x reset_network
-    
-Install keyctl to allow password caching.
-    
-    $ apt-get install keyctl
-    
-Install 
+    $ sudo chmod +x crypt_unlock.sh
+    $ cd /etc/initramfs-tools/scripts/local-bottom
+    $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/scripts/local-bottom/kill_dropbear_connections
+    $ sudo chmod +x kill_dropbear_connections
+    $ sudo wget https://raw.githubusercontent.com/skadauke/early-luks-unlock/master/scripts/local-bottom/reset_network
+    $ sudo chmod +x reset_network
     
 Depending on whether you'd like to unlock your system using a passphrase (entered via SSH or console) or using a key drive on removable storage (USB stick or SD flash card) follow either [A) Using a passphrase](#a-using-a-passphrase) or [B) Using a key file on removable storage](#b-using-a-key-file-on-removable-storage).
 

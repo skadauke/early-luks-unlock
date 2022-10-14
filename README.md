@@ -66,7 +66,7 @@ Type the following command on the **client** (Mac OS X Terminal or Linux) to cop
 
 Add the following to the end of `~/.ssh/config`:
 
-    Host server
+    Match originalhost serverIP user root
         HostName serverIP
         User root
         UserKnownHostsFile ~/.ssh/known_hosts.initramfs

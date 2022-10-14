@@ -21,7 +21,10 @@ copy_exec /bin/keyctl
 
 if [ "${DROPBEAR}" != "n" ] && [ -r "/etc/crypttab" ] ; then
     #run unlock on ssh login
-    echo unlock>${DESTDIR}/root/.profile
+    # In some versions of update-initramfs, instead of just a /root dir in the initramfs, it's /root-a12b3 or something like that with a dynamic suffix
+    # So the following line figures out what the actual root directory is
+    ROOTDIR=`find ${DESTDIR} -maxdepth 1 -type d -name root* -print | head -n 1`
+    echo unlock>${ROOTDIR}/.profile
         #write the unlock script
     cat > "${DESTDIR}/bin/unlock" <<EOF
 #!/bin/sh
